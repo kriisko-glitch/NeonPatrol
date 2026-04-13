@@ -9,13 +9,58 @@ USparkCommentaryComponent::USparkCommentaryComponent()
 {
     PrimaryComponentTick.bCanEverTick = true;
 
-    CombatStart = { "Enemies incoming!", "Here they come!", "Weapons hot!", "Contact!" };
-    EnemyKilled = { "Got one!", "Target down!", "Scratch one!", "That's a kill!" };
-    PlayerHit = { "Watch out, partner!", "You're taking hits!", "Stay sharp!" };
-    SparkHit = { "I'm hit!", "Taking fire!", "Ow, my circuits!" };
-    WaveCleared = { "Area clear.", "Wave down! Nice work.", "All hostiles eliminated." };
-    IdleChatter = { "Quiet... too quiet.", "Sensors nominal.", "Ready when you are.", "Scanning perimeter.", "Hey partner, you good?" };
-    LowHealth = { "I'm not looking great here.", "Damage critical!", "Need a breather." };
+    CombatStart = {
+        TEXT("Contact! Weapons hot!"),
+        TEXT("Here they come! Time to earn our pay."),
+        TEXT("Hostiles detected. Let's dance."),
+        TEXT("Incoming! I was getting bored anyway."),
+        TEXT("Enemy signatures. Finally, some excitement!"),
+        TEXT("Targets acquired. Shall we?"),
+    };
+    EnemyKilled = {
+        TEXT("Got one! That's what I call precision."),
+        TEXT("Target eliminated. Next!"),
+        TEXT("Scratch one hostile."),
+        TEXT("Down they go!"),
+        TEXT("One less problem to worry about."),
+        TEXT("Nice shooting, partner!"),
+        TEXT("That one won't be bothering anyone."),
+    };
+    PlayerHit = {
+        TEXT("Hey! Watch your six, partner!"),
+        TEXT("You're taking hits! Stay behind me!"),
+        TEXT("Careful out there, you're not made of metal."),
+        TEXT("Duck and cover! I'll draw their fire."),
+    };
+    SparkHit = {
+        TEXT("Ow! My beautiful chassis!"),
+        TEXT("Taking fire! These guys have no respect."),
+        TEXT("I felt that one. Rude."),
+        TEXT("Direct hit. Still operational though!"),
+    };
+    WaveCleared = {
+        TEXT("Area secure. Good work, partner."),
+        TEXT("All hostiles down. We make a good team."),
+        TEXT("Wave cleared! I barely broke a sweat. Do I sweat?"),
+        TEXT("Sector clear. Catch your breath."),
+        TEXT("That's the last of them. For now."),
+    };
+    IdleChatter = {
+        TEXT("Quiet... too quiet. I don't trust it."),
+        TEXT("All systems green. Just vibing."),
+        TEXT("Ready when you are, boss."),
+        TEXT("Scanning perimeter. Nothing yet."),
+        TEXT("Hey partner, you ever wonder why robots go rogue?"),
+        TEXT("I could use a tune-up after this."),
+        TEXT("My targeting calibration is at 99.7 percent. Just saying."),
+        TEXT("You know, for a dangerous facility, the lighting is nice."),
+    };
+    LowHealth = {
+        TEXT("Warning: hull integrity compromised!"),
+        TEXT("I've seen better days. And worse ones."),
+        TEXT("Systems critical. Could use some help here."),
+        TEXT("Damage report: bad. Real bad."),
+    };
 }
 
 void USparkCommentaryComponent::BeginPlay()
