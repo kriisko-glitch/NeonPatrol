@@ -55,17 +55,21 @@ void ASparkCharacter::Tick(float DeltaTime)
     APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
     if (PlayerPawn)
     {
-        for (TActorIterator<ARobotEnemy> It(GetWorld()); It; ++It)
+        // Search all characters — fight any AI-controlled character (template CombatEnemy or our RobotEnemy)
+        for (TActorIterator<ACharacter> It(GetWorld()); It; ++It)
         {
-            ARobotEnemy* Enemy = *It;
-            if (Enemy && Enemy->GetActorLocation() != FVector::ZeroVector)
+            ACharacter* Candidate = *It;
+            if (!Candidate || Candidate == this || Candidate == PlayerPawn) continue;
+            // Skip other friendly characters (only attack AI-controlled ones)
+            if (!Candidate->GetController() || Candidate->GetController()->IsPlayerController()) continue;
+            // Skip dead characters (check if movement is disabled as a proxy for death)
+            if (Candidate->GetCharacterMovement() && Candidate->GetCharacterMovement()->MovementMode == MOVE_None) continue;
+
+            float Dist = FVector::Dist(GetActorLocation(), Candidate->GetActorLocation());
+            if (Dist < ClosestDist)
             {
-                float Dist = FVector::Dist(GetActorLocation(), Enemy->GetActorLocation());
-                if (Dist < ClosestDist)
-                {
-                    ClosestDist = Dist;
-                    CurrentEnemy = Enemy;
-                }
+                ClosestDist = Dist;
+                CurrentEnemy = Candidate;
             }
         }
     }

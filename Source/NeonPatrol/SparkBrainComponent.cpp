@@ -1,12 +1,5 @@
 #include "SparkBrainComponent.h"
 #include "NeonPatrol.h"
-#include "HttpModule.h"
-#include "Interfaces/IHttpRequest.h"
-#include "Interfaces/IHttpResponse.h"
-#include "Dom/JsonObject.h"
-#include "Dom/JsonValue.h"
-#include "Serialization/JsonSerializer.h"
-#include "Serialization/JsonWriter.h"
 
 USparkBrainComponent::USparkBrainComponent()
 {
@@ -16,32 +9,39 @@ USparkBrainComponent::USparkBrainComponent()
 void USparkBrainComponent::BeginPlay()
 {
     Super::BeginPlay();
+
+    FString FullPath = FPaths::ConvertRelativePathToFull(ApiKeyFilePath);
+    if (FFileHelper::LoadFileToString(ApiKey, *FullPath))
+    {
+        ApiKey.TrimStartAndEndInline();
+        UE_LOG(LogTemp, Log, TEXT("SparkBrain: API key loaded from %s"), *FullPath);
+    }
+    else
+    {
+        UE_LOG(LogTemp, Error, TEXT("SparkBrain: Failed to load API key from %s"), *FullPath);
+    }
 }
 
 void USparkBrainComponent::SendChat(const FString& PlayerMessage)
 {
-    FHttpModule* Http = &FHttpModule::Get();
-    if (!Http) return;
+    if (PlayerMessage.IsEmpty()) return;
 
-    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Request = Http->CreateRequest();
-    Request->SetURL(EndpointURL);
-    Request->SetVerb("POST");
-    Request->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
-    Request->SetHeader(TEXT("User-Agent"), TEXT("Kriisko-Studio/1.0"));
+    TSharedPtr<FJsonObject> UserMsg = MakeShareable(new FJsonObject);
+    UserMsg->SetStringField(TEXT("role"), TEXT("user"));
+    UserMsg->SetStringField(TEXT("content"), PlayerMessage);
+    MessageHistory.Add(MakeShareable(new FJsonValueObject(UserMsg)));
 
-    TSharedPtr<FJsonObject> JsonObject = MakeShareable(new FJsonObject);
-    JsonObject->SetStringField("model", ModelName);
-    JsonObject->SetNumberField("max_tokens", MaxTokens);
-    JsonObject->SetNumberField("temperature", Temperature);
+    TrimHistory();
 
-    TSharedPtr<FJsonObject> ChatTemplateKwArgs = MakeShareable(new FJsonObject);
-    ChatTemplateKwArgs->SetBoolField("enable_thinking", false);
-    JsonObject->SetObjectField("chat_template_kwargs", ChatTemplateKwArgs);
+    TSharedPtr<FJsonObject> Root = MakeShareable(new FJsonObject);
+    Root->SetStringField(TEXT("model"), ModelName);
+    Root->SetNumberField(TEXT("max_tokens"), MaxTokens);
+    Root->SetNumberField(TEXT("temperature"), Temperature);
 
     TArray<TSharedPtr<FJsonValue>> Messages;
     TSharedPtr<FJsonObject> SystemMsg = MakeShareable(new FJsonObject);
-    SystemMsg->SetStringField("role", "system");
-    SystemMsg->SetStringField("content", SystemPrompt);
+    SystemMsg->SetStringField(TEXT("role"), TEXT("system"));
+    SystemMsg->SetStringField(TEXT("content"), SystemPrompt);
     Messages.Add(MakeShareable(new FJsonValueObject(SystemMsg)));
 
     for (const auto& Msg : MessageHistory)
@@ -49,70 +49,86 @@ void USparkBrainComponent::SendChat(const FString& PlayerMessage)
         Messages.Add(Msg);
     }
 
-    TSharedPtr<FJsonObject> UserMsg = MakeShareable(new FJsonObject);
-    UserMsg->SetStringField("role", "user");
-    UserMsg->SetStringField("content", PlayerMessage);
-    Messages.Add(MakeShareable(new FJsonValueObject(UserMsg)));
+    Root->SetArrayField(TEXT("messages"), Messages);
 
-    // Add user message to history
-    TSharedPtr<FJsonObject> UserMsgCopy = MakeShareable(new FJsonObject);
-    UserMsgCopy->SetStringField("role", "user");
-    UserMsgCopy->SetStringField("content", PlayerMessage);
-    MessageHistory.Add(MakeShareable(new FJsonValueObject(UserMsgCopy)));
-
-    JsonObject->SetArrayField("messages", Messages);
+    if (EndpointURL.Contains(TEXT("127.0.0.1")))
+    {
+        TSharedPtr<FJsonObject> Kwargs = MakeShareable(new FJsonObject);
+        Kwargs->SetBoolField(TEXT("add_generation_prompt"), true);
+        Root->SetObjectField(TEXT("chat_template_kwargs"), Kwargs);
+    }
 
     FString JsonStr;
     TSharedRef<TJsonWriter<>> Writer = TJsonWriterFactory<>::Create(&JsonStr);
-    FJsonSerializer::Serialize(JsonObject.ToSharedRef(), Writer);
+    FJsonSerializer::Serialize(Root.ToSharedRef(), Writer);
 
-    Request->SetContentAsString(JsonStr);
-    Request->OnProcessRequestComplete().BindUObject(this, &USparkBrainComponent::OnResponseReceived);
-    Request->ProcessRequest();
+    FHttpModule& Http = FHttpModule::Get();
+    TSharedRef<IHttpRequest, ESPMode::ThreadSafe> Req = Http.CreateRequest();
+    Req->SetURL(EndpointURL);
+    Req->SetVerb(TEXT("POST"));
+    Req->SetHeader(TEXT("Content-Type"), TEXT("application/json"));
+    Req->SetHeader(TEXT("User-Agent"), TEXT("Kriisko-Studio/1.0"));
+    Req->SetHeader(TEXT("Authorization"), FString::Printf(TEXT("Bearer %s"), *ApiKey));
+    Req->SetContentAsString(JsonStr);
+    Req->OnProcessRequestComplete().BindUObject(this, &USparkBrainComponent::OnResponseReceived);
+    Req->ProcessRequest();
 }
 
 void USparkBrainComponent::OnResponseReceived(FHttpRequestPtr Request, FHttpResponsePtr Response, bool bWasSuccessful)
 {
-    if (!bWasSuccessful || !Response.IsValid()) return;
-
-    FString ResponseStr = Response->GetContentAsString();
-    TSharedPtr<FJsonObject> JsonObject;
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(ResponseStr);
-
-    if (!FJsonSerializer::Deserialize(Reader, JsonObject)) return;
-
-    const TArray<TSharedPtr<FJsonValue>>* Choices;
-    if (!JsonObject->TryGetArrayField(TEXT("choices"), Choices)) return;
-    if (Choices->Num() == 0) return;
-
-    TSharedPtr<FJsonObject> ChoiceObj = (*Choices)[0]->AsObject();
-    if (!ChoiceObj.IsValid()) return;
-
-    TSharedPtr<FJsonObject> MessageObj = ChoiceObj->GetObjectField(TEXT("message"));
-    if (!MessageObj.IsValid()) return;
-
     FString Content;
-    if (!MessageObj->TryGetStringField(TEXT("content"), Content)) return;
+    if (bWasSuccessful && Response.IsValid() && EHttpResponseCodes::IsOk(Response->GetResponseCode()))
+    {
+        FString RespStr = Response->GetContentAsString();
+        TSharedPtr<FJsonObject> RespObj;
+        TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(RespStr);
+        if (FJsonSerializer::Deserialize(Reader, RespObj))
+        {
+            const TArray<TSharedPtr<FJsonValue>>* Choices;
+            if (RespObj->TryGetArrayField(TEXT("choices"), Choices) && Choices->Num() > 0)
+            {
+                const TSharedPtr<FJsonObject>* ChoiceObj;
+                if ((*Choices)[0]->TryGetObject(ChoiceObj))
+                {
+                    const TSharedPtr<FJsonObject>* MsgObj;
+                    if (ChoiceObj->Get()->TryGetObjectField(TEXT("message"), MsgObj))
+                    {
+                        MsgObj->Get()->TryGetStringField(TEXT("content"), Content);
+                        Content.TrimStartAndEndInline();
+                    }
+                }
+            }
+        }
+    }
 
-    Content.TrimStartAndEndInline();
+    if (Content.IsEmpty())
+    {
+        Content = TEXT("...");
+    }
+
     LastResponse = Content;
+
+    TSharedPtr<FJsonObject> AssistantMsg = MakeShareable(new FJsonObject);
+    AssistantMsg->SetStringField(TEXT("role"), TEXT("assistant"));
+    AssistantMsg->SetStringField(TEXT("content"), Content);
+    MessageHistory.Add(MakeShareable(new FJsonValueObject(AssistantMsg)));
+
+    TrimHistory();
 
     FString PlayerMessage;
     if (MessageHistory.Num() > 0)
     {
-        TSharedPtr<FJsonObject> LastUserMsg = MessageHistory.Last()->AsObject();
-        if (LastUserMsg.IsValid())
+        const TSharedPtr<FJsonObject>* LastUser;
+        if (MessageHistory.Last()->TryGetObject(LastUser))
         {
-            LastUserMsg->TryGetStringField(TEXT("content"), PlayerMessage);
+            FString Role;
+            LastUser->Get()->TryGetStringField(TEXT("role"), Role);
+            if (Role == TEXT("user"))
+            {
+                LastUser->Get()->TryGetStringField(TEXT("content"), PlayerMessage);
+            }
         }
     }
-
-    TSharedPtr<FJsonObject> AssistantMsg = MakeShareable(new FJsonObject);
-    AssistantMsg->SetStringField("role", "assistant");
-    AssistantMsg->SetStringField("content", Content);
-    MessageHistory.Add(MakeShareable(new FJsonValueObject(AssistantMsg)));
-
-    TrimHistory();
 
     OnChatResponse.Broadcast(PlayerMessage, Content);
 }
