@@ -214,6 +214,7 @@ void USparkBrainComponent::ParseAndExecuteCommand(const FString& RawResponse, FS
     else if (CmdName == TEXT("AGGRESSIVE")) Cmd = ESparkCommand::Aggressive;
     else if (CmdName == TEXT("DEFENSIVE")) Cmd = ESparkCommand::Defensive;
     else if (CmdName == TEXT("SCOUT")) Cmd = ESparkCommand::Scout;
+    else if (CmdName == TEXT("FIRE_AT_TARGET") || CmdName == TEXT("FIRE") || CmdName == TEXT("SHOOT")) Cmd = ESparkCommand::FireAtTarget;
 
     if (Cmd != ESparkCommand::None)
     {

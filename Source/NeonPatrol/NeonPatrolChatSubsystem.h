@@ -30,6 +30,7 @@ private:
 
     bool bWidgetCreated = false;
     bool bEnterWasDown = false;
+    bool bEscWasDown = false;
     bool bVKeyWasDown = false;
     float InitDelay = 0.5f;
 };

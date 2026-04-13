@@ -124,6 +124,19 @@ void ASparkCharacter::ExecuteCommand(ESparkCommand Command, float Param)
         UE_LOG(LogNeonPatrol, Log, TEXT("Spark: DEFENSIVE mode — close protection only"));
         break;
 
+    case ESparkCommand::FireAtTarget:
+    {
+        AActor* LookTarget = FindPlayerLookTarget();
+        if (LookTarget)
+        {
+            // Temporarily override enemy target and fire
+            CurrentEnemy = LookTarget;
+            ShootAtEnemy();
+            UE_LOG(LogNeonPatrol, Log, TEXT("Spark: FIRE AT TARGET — %s"), *LookTarget->GetName());
+        }
+        break;
+    }
+
     case ESparkCommand::Scout:
         if (PlayerPawn)
         {
@@ -262,6 +275,36 @@ void ASparkCharacter::ShootAtEnemy()
     }
 
     LastAttackTime = GetWorld()->GetTimeSeconds();
+}
+
+AActor* ASparkCharacter::FindPlayerLookTarget() const
+{
+    APlayerController* PC = GetWorld()->GetFirstPlayerController();
+    if (!PC) return nullptr;
+
+    FVector CamLoc;
+    FRotator CamRot;
+    PC->GetPlayerViewPoint(CamLoc, CamRot);
+
+    FVector TraceEnd = CamLoc + CamRot.Vector() * 5000.f;
+
+    FHitResult Hit;
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(PC->GetPawn());
+    Params.AddIgnoredActor(this);
+
+    if (GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, TraceEnd, ECC_Pawn, Params))
+    {
+        return Hit.GetActor();
+    }
+
+    // Try world static (for boxes, destructibles)
+    if (GetWorld()->LineTraceSingleByChannel(Hit, CamLoc, TraceEnd, ECC_WorldDynamic, Params))
+    {
+        return Hit.GetActor();
+    }
+
+    return nullptr;
 }
 
 void ASparkCharacter::UpdateColorState(float DeltaTime)

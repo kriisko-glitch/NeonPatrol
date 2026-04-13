@@ -27,6 +27,7 @@ enum class ESparkCommand : uint8
     Aggressive,     // Close range, fast fire
     Defensive,      // Stay near player, conservative
     Scout,          // Move ahead, scan, return
+    FireAtTarget,   // Shoot what the player is looking at
 };
 
 UENUM(BlueprintType)
@@ -68,7 +69,7 @@ public:
     float AttackRange = 800.0f;
 
     UPROPERTY(EditAnywhere, Category = "Combat")
-    float AttackDamage = 15.0f;
+    float AttackDamage = 1.0f;
 
     UPROPERTY(EditAnywhere, Category = "Combat")
     float AttackCooldown = 1.5f;
@@ -115,4 +116,5 @@ private:
 
     void ShootAtEnemy();
     void MoveTowardTarget(float DeltaTime);
+    AActor* FindPlayerLookTarget() const;
 };

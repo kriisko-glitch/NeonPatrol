@@ -75,17 +75,40 @@ void UNeonPatrolChatSubsystem::Tick(float DeltaTime)
     APlayerController* PC = World->GetFirstPlayerController();
     if (!PC) return;
 
+    // Enter key: only OPEN chat when it's closed (not toggle)
+    // When chat is open, Enter is handled by the text input (submits message)
     bool bEnterDown = PC->IsInputKeyDown(EKeys::Enter);
     if (bEnterDown && !bEnterWasDown)
     {
-        ToggleChat();
+        if (ChatWidget && ChatWidget->GetVisibility() != ESlateVisibility::Collapsed)
+        {
+            // Chat is open — don't interfere, let text input handle Enter
+        }
+        else
+        {
+            // Chat is closed — open it
+            if (ChatWidget) ChatWidget->ShowChat();
+        }
     }
     bEnterWasDown = bEnterDown;
 
-    // V key = push-to-talk voice input
+    // Escape key: close chat
+    bool bEscDown = PC->IsInputKeyDown(EKeys::Escape);
+    if (bEscDown && !bEscWasDown)
+    {
+        if (ChatWidget) ChatWidget->HideChat();
+    }
+    bEscWasDown = bEscDown;
+
+    // V key = push-to-talk voice input (works anytime, no chat panel)
     bool bVKeyDown = PC->IsInputKeyDown(EKeys::V);
     if (bVKeyDown && !bVKeyWasDown)
     {
+        // Close chat first if open, so player stays in gameplay
+        if (ChatWidget && ChatWidget->GetVisibility() != ESlateVisibility::Collapsed)
+        {
+            ChatWidget->HideChat();
+        }
         StartVoiceInput();
     }
     bVKeyWasDown = bVKeyDown;
