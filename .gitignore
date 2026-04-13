@@ -25,5 +25,10 @@ Packaged/
 *.sdf
 *.ipch
 
-# Content that comes from engine/Fab packs (don't bloat repo)
-# Keep only project-specific content
+# Content — template content is large binary (uasset/umap) files.
+# We track Source/ and Config/ in git (the actual code).
+# Content/ is reconstructed by opening the project in UE5 editor.
+Content/
+
+# Backup custom source
+_custom_src/

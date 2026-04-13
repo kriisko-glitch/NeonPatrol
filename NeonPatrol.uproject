@@ -24,8 +24,8 @@
 				"Engine",
 				"CoreUObject",
 				"EnhancedInput",
-				"UMG",
-				"Slate"
+				"AIModule",
+				"UMG"
 			]
 		}
 	],
@@ -39,6 +39,14 @@
 		},
 		{
 			"Name": "EnhancedInput",
+			"Enabled": true
+		},
+		{
+			"Name": "StateTree",
+			"Enabled": true
+		},
+		{
+			"Name": "GameplayStateTree",
 			"Enabled": true
 		},
 		{
