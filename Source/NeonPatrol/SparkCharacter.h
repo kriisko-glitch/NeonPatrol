@@ -10,6 +10,21 @@ class USparkVoiceComponent;
 class ARobotEnemy;
 class AProjectile;
 
+UENUM(BlueprintType)
+enum class ESparkCommand : uint8
+{
+    None,
+    Follow,         // Follow player (default)
+    Stay,           // Stop and wait
+    Attack,         // Enable attacking enemies
+    HoldFire,       // Stop attacking
+    MoveForward,    // Move forward N units relative to player facing
+    MoveLeft,
+    MoveRight,
+    MoveBack,
+    ComeHere,       // Move directly to player
+};
+
 UCLASS(BlueprintType)
 class NEONPATROL_API ASparkCharacter : public ACharacter
 {
@@ -20,20 +35,33 @@ public:
 
     virtual void Tick(float DeltaTime) override;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Follow")
-    float FollowDistance;
+    // --- Behavior state (controllable via commands) ---
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Behavior")
+    bool bShouldFollow = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Behavior")
+    bool bShouldAttack = true;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Follow")
-    AActor* FollowTarget;
+    float FollowDistance = 300.0f;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Follow")
+    AActor* FollowTarget = nullptr;
 
     UPROPERTY(EditAnywhere, Category = "Combat")
-    float AttackRange;
+    float AttackRange = 800.0f;
 
     UPROPERTY(EditAnywhere, Category = "Combat")
-    float AttackDamage;
+    float AttackDamage = 15.0f;
 
     UPROPERTY(EditAnywhere, Category = "Combat")
-    float AttackCooldown;
+    float AttackCooldown = 1.5f;
+
+    // --- Command execution ---
+
+    UFUNCTION(BlueprintCallable, Category = "Commands")
+    void ExecuteCommand(ESparkCommand Command, float Param = 0.0f);
 
 protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
@@ -49,9 +77,13 @@ protected:
     USparkVoiceComponent* VoiceComp;
 
 private:
-    float LastAttackTime;
-    AActor* CurrentEnemy;
+    float LastAttackTime = 0.f;
+    AActor* CurrentEnemy = nullptr;
 
-    UFUNCTION()
+    // Movement command state
+    FVector MoveTargetLocation = FVector::ZeroVector;
+    bool bHasMoveTarget = false;
+
     void ShootAtEnemy();
+    void MoveTowardTarget(float DeltaTime);
 };

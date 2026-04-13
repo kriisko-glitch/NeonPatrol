@@ -16,13 +16,6 @@ ASparkCharacter::ASparkCharacter()
 {
     PrimaryActorTick.bCanEverTick = true;
 
-    FollowDistance = 300.0f;
-    AttackRange = 800.0f;
-    AttackDamage = 15.0f;
-    AttackCooldown = 1.5f;
-    LastAttackTime = 0.0f;
-    CurrentEnemy = nullptr;
-
     CombatComp = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComp"));
     CombatComp->MaxHealth = 200;
 
@@ -41,38 +34,100 @@ ASparkCharacter::ASparkCharacter()
     Movement->bOrientRotationToMovement = true;
     Movement->DefaultLandMovementMode = EMovementMode::MOVE_Walking;
 
-    // Auto-possess with AI controller so movement works when placed in level
     AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
     AIControllerClass = AAIController::StaticClass();
+}
+
+void ASparkCharacter::ExecuteCommand(ESparkCommand Command, float Param)
+{
+    APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+
+    switch (Command)
+    {
+    case ESparkCommand::Follow:
+        bShouldFollow = true;
+        bHasMoveTarget = false;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: FOLLOW mode"));
+        break;
+
+    case ESparkCommand::Stay:
+        bShouldFollow = false;
+        bHasMoveTarget = false;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: STAY mode"));
+        break;
+
+    case ESparkCommand::Attack:
+        bShouldAttack = true;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: ATTACK enabled"));
+        break;
+
+    case ESparkCommand::HoldFire:
+        bShouldAttack = false;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: HOLD FIRE"));
+        break;
+
+    case ESparkCommand::ComeHere:
+        if (PlayerPawn)
+        {
+            MoveTargetLocation = PlayerPawn->GetActorLocation();
+            bHasMoveTarget = true;
+            bShouldFollow = false;
+        }
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: COME HERE"));
+        break;
+
+    case ESparkCommand::MoveForward:
+    case ESparkCommand::MoveBack:
+    case ESparkCommand::MoveLeft:
+    case ESparkCommand::MoveRight:
+    {
+        if (!PlayerPawn) break;
+        float Dist = (Param > 0.f) ? Param : 500.f;
+        FRotator PlayerRot = PlayerPawn->GetActorRotation();
+        FVector Dir;
+        if (Command == ESparkCommand::MoveForward)
+            Dir = FRotationMatrix(PlayerRot).GetUnitAxis(EAxis::X);
+        else if (Command == ESparkCommand::MoveBack)
+            Dir = -FRotationMatrix(PlayerRot).GetUnitAxis(EAxis::X);
+        else if (Command == ESparkCommand::MoveLeft)
+            Dir = -FRotationMatrix(PlayerRot).GetUnitAxis(EAxis::Y);
+        else
+            Dir = FRotationMatrix(PlayerRot).GetUnitAxis(EAxis::Y);
+
+        MoveTargetLocation = GetActorLocation() + Dir * Dist;
+        bHasMoveTarget = true;
+        bShouldFollow = false;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: MOVE %s %.0f units"), *UEnum::GetValueAsString(Command), Dist);
+        break;
+    }
+
+    default:
+        break;
+    }
 }
 
 void ASparkCharacter::Tick(float DeltaTime)
 {
     Super::Tick(DeltaTime);
 
+    // Auto-find player
     if (!FollowTarget)
     {
-        APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
-        if (PlayerPawn)
-        {
-            FollowTarget = PlayerPawn;
-        }
+        FollowTarget = UGameplayStatics::GetPlayerPawn(this, 0);
     }
 
+    // --- Enemy targeting (only if attacking is enabled) ---
     CurrentEnemy = nullptr;
-    float ClosestDist = AttackRange;
-
-    APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
-    if (PlayerPawn)
+    if (bShouldAttack)
     {
-        // Search all characters — fight any AI-controlled character (template CombatEnemy or our RobotEnemy)
+        float ClosestDist = AttackRange;
+        APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(this, 0);
+
         for (TActorIterator<ACharacter> It(GetWorld()); It; ++It)
         {
             ACharacter* Candidate = *It;
             if (!Candidate || Candidate == this || Candidate == PlayerPawn) continue;
-            // Skip other friendly characters (only attack AI-controlled ones)
             if (!Candidate->GetController() || Candidate->GetController()->IsPlayerController()) continue;
-            // Skip dead characters (check if movement is disabled as a proxy for death)
             if (Candidate->GetCharacterMovement() && Candidate->GetCharacterMovement()->MovementMode == MOVE_None) continue;
 
             float Dist = FVector::Dist(GetActorLocation(), Candidate->GetActorLocation());
@@ -82,20 +137,27 @@ void ASparkCharacter::Tick(float DeltaTime)
                 CurrentEnemy = Candidate;
             }
         }
+
+        // Shoot if we have an enemy and cooldown elapsed
+        if (CurrentEnemy && (GetWorld()->GetTimeSeconds() - LastAttackTime) >= AttackCooldown)
+        {
+            ShootAtEnemy();
+        }
     }
 
-    if (CurrentEnemy && (GetWorld()->GetTimeSeconds() - LastAttackTime) >= AttackCooldown)
+    // --- Movement ---
+    if (bHasMoveTarget)
     {
-        ShootAtEnemy();
+        MoveTowardTarget(DeltaTime);
     }
-
-    if (CurrentEnemy && FVector::Dist(GetActorLocation(), CurrentEnemy->GetActorLocation()) < AttackRange)
+    else if (CurrentEnemy && bShouldAttack)
     {
+        // Face enemy while in combat
         FVector Dir = (CurrentEnemy->GetActorLocation() - GetActorLocation()).GetSafeNormal();
         FRotator LookAtRot = FRotationMatrix::MakeFromX(Dir).Rotator();
         SetActorRotation(FRotator(0.0f, LookAtRot.Yaw, 0.0f));
     }
-    else if (FollowTarget)
+    else if (bShouldFollow && FollowTarget)
     {
         float DistToTarget = FVector::Dist(GetActorLocation(), FollowTarget->GetActorLocation());
         if (DistToTarget > FollowDistance)
@@ -104,6 +166,20 @@ void ASparkCharacter::Tick(float DeltaTime)
             AddMovementInput(Direction, 1.0f);
         }
     }
+}
+
+void ASparkCharacter::MoveTowardTarget(float DeltaTime)
+{
+    float Dist = FVector::Dist2D(GetActorLocation(), MoveTargetLocation);
+    if (Dist < 50.f)
+    {
+        // Arrived
+        bHasMoveTarget = false;
+        return;
+    }
+
+    FVector Dir = (MoveTargetLocation - GetActorLocation()).GetSafeNormal();
+    AddMovementInput(Dir, 1.0f);
 }
 
 void ASparkCharacter::ShootAtEnemy()

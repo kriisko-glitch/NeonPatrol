@@ -1,4 +1,5 @@
 #include "SparkBrainComponent.h"
+#include "SparkCharacter.h"
 #include "NeonPatrol.h"
 
 USparkBrainComponent::USparkBrainComponent()
@@ -106,7 +107,13 @@ void USparkBrainComponent::OnResponseReceived(FHttpRequestPtr Request, FHttpResp
         Content = TEXT("...");
     }
 
-    LastResponse = Content;
+    // Parse JSON command from LLM response
+    FString SayText;
+    ParseAndExecuteCommand(Content, SayText);
+
+    // Use the "say" field as the display text, fall back to raw content
+    FString DisplayText = SayText.IsEmpty() ? Content : SayText;
+    LastResponse = DisplayText;
 
     TSharedPtr<FJsonObject> AssistantMsg = MakeShareable(new FJsonObject);
     AssistantMsg->SetStringField(TEXT("role"), TEXT("assistant"));
@@ -115,22 +122,24 @@ void USparkBrainComponent::OnResponseReceived(FHttpRequestPtr Request, FHttpResp
 
     TrimHistory();
 
+    // Find the last user message for the broadcast
     FString PlayerMessage;
-    if (MessageHistory.Num() > 0)
+    for (int32 i = MessageHistory.Num() - 1; i >= 0; --i)
     {
-        const TSharedPtr<FJsonObject>* LastUser;
-        if (MessageHistory.Last()->TryGetObject(LastUser))
+        const TSharedPtr<FJsonObject>* MsgObj;
+        if (MessageHistory[i]->TryGetObject(MsgObj))
         {
             FString Role;
-            LastUser->Get()->TryGetStringField(TEXT("role"), Role);
+            MsgObj->Get()->TryGetStringField(TEXT("role"), Role);
             if (Role == TEXT("user"))
             {
-                LastUser->Get()->TryGetStringField(TEXT("content"), PlayerMessage);
+                MsgObj->Get()->TryGetStringField(TEXT("content"), PlayerMessage);
+                break;
             }
         }
     }
 
-    OnChatResponse.Broadcast(PlayerMessage, Content);
+    OnChatResponse.Broadcast(PlayerMessage, DisplayText);
 }
 
 void USparkBrainComponent::TrimHistory()
@@ -144,4 +153,69 @@ void USparkBrainComponent::TrimHistory()
 FString USparkBrainComponent::GetLastResponse() const
 {
     return LastResponse;
+}
+
+void USparkBrainComponent::ParseAndExecuteCommand(const FString& RawResponse, FString& OutSay)
+{
+    // Try to parse as JSON: {"say":"...", "cmd":"COMMAND PARAM"}
+    TSharedPtr<FJsonObject> JsonObj;
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(RawResponse);
+
+    if (!FJsonSerializer::Deserialize(Reader, JsonObj) || !JsonObj.IsValid())
+    {
+        // Not valid JSON — treat entire response as speech, no command
+        OutSay = RawResponse;
+        return;
+    }
+
+    // Extract "say" text
+    JsonObj->TryGetStringField(TEXT("say"), OutSay);
+
+    // Extract and parse "cmd"
+    FString CmdStr;
+    if (!JsonObj->TryGetStringField(TEXT("cmd"), CmdStr) || CmdStr.IsEmpty() || CmdStr == TEXT("NONE"))
+    {
+        return; // No command
+    }
+
+    // Parse command name and optional parameter
+    FString CmdName;
+    float CmdParam = 0.f;
+    int32 SpaceIdx;
+    if (CmdStr.FindChar(' ', SpaceIdx))
+    {
+        CmdName = CmdStr.Left(SpaceIdx).ToUpper();
+        FString ParamStr = CmdStr.Mid(SpaceIdx + 1);
+        CmdParam = FCString::Atof(*ParamStr);
+    }
+    else
+    {
+        CmdName = CmdStr.ToUpper();
+    }
+
+    // Map command string to enum and execute on SparkCharacter
+    ASparkCharacter* Spark = Cast<ASparkCharacter>(GetOwner());
+    if (!Spark)
+    {
+        UE_LOG(LogNeonPatrol, Warning, TEXT("SparkBrain: No SparkCharacter owner for command %s"), *CmdName);
+        return;
+    }
+
+    ESparkCommand Cmd = ESparkCommand::None;
+    if (CmdName == TEXT("FOLLOW")) Cmd = ESparkCommand::Follow;
+    else if (CmdName == TEXT("STAY")) Cmd = ESparkCommand::Stay;
+    else if (CmdName == TEXT("ATTACK")) Cmd = ESparkCommand::Attack;
+    else if (CmdName == TEXT("HOLD_FIRE")) Cmd = ESparkCommand::HoldFire;
+    else if (CmdName == TEXT("COME_HERE")) Cmd = ESparkCommand::ComeHere;
+    else if (CmdName == TEXT("MOVE_FORWARD")) Cmd = ESparkCommand::MoveForward;
+    else if (CmdName == TEXT("MOVE_BACK")) Cmd = ESparkCommand::MoveBack;
+    else if (CmdName == TEXT("MOVE_LEFT")) Cmd = ESparkCommand::MoveLeft;
+    else if (CmdName == TEXT("MOVE_RIGHT")) Cmd = ESparkCommand::MoveRight;
+
+    if (Cmd != ESparkCommand::None)
+    {
+        Spark->ExecuteCommand(Cmd, CmdParam);
+        OnSparkCommand.Broadcast(CmdName, CmdParam);
+        UE_LOG(LogNeonPatrol, Log, TEXT("SparkBrain: Executed command %s (%.0f)"), *CmdName, CmdParam);
+    }
 }

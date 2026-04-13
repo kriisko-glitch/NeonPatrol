@@ -3,6 +3,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "CombatComponent.h"
+#include "Engine/DamageEvents.h"
 
 AProjectile::AProjectile()
 {
@@ -45,6 +46,12 @@ void AProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPrimi
 {
 	if (OtherActor && OtherActor != GetOwner())
 	{
+		// Use UE5's built-in TakeDamage — CombatEnemy overrides this
+		FPointDamageEvent DamageEvent(Damage, Hit, (OtherActor->GetActorLocation() - GetActorLocation()).GetSafeNormal(), nullptr);
+		AController* InstigatorController = GetInstigatorController();
+		OtherActor->TakeDamage(Damage, DamageEvent, InstigatorController, GetOwner());
+
+		// Also try our CombatComponent as fallback
 		if (UCombatComponent* CombatComp = OtherActor->FindComponentByClass<UCombatComponent>())
 		{
 			CombatComp->TakeDamage(Damage);
