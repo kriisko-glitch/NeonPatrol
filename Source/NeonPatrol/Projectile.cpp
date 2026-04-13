@@ -3,6 +3,7 @@
 #include "GameFramework/ProjectileMovementComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "CombatComponent.h"
+#include "CombatDamageable.h"
 #include "Engine/DamageEvents.h"
 
 AProjectile::AProjectile()
@@ -73,11 +74,21 @@ void AProjectile::DealDamage(AActor* Target)
 {
 	if (!Target) return;
 
-	// Use UE5's TakeDamage — CombatEnemy overrides this and reduces HP
+	FVector ImpactDir = (Target->GetActorLocation() - GetActorLocation()).GetSafeNormal();
+	FVector ImpactPoint = GetActorLocation();
+
+	// Priority 1: ICombatDamageable interface (template enemies + destructible boxes)
+	if (ICombatDamageable* Damageable = Cast<ICombatDamageable>(Target))
+	{
+		Damageable->ApplyDamage(Damage, GetOwner(), ImpactPoint, ImpactDir * 500.f);
+		return;
+	}
+
+	// Priority 2: UE5 TakeDamage (generic fallback)
 	FDamageEvent DamageEvent;
 	Target->TakeDamage(Damage, DamageEvent, GetInstigatorController(), GetOwner() ? GetOwner() : this);
 
-	// Also try our CombatComponent as fallback (for NeonPatrol enemies)
+	// Priority 3: Our CombatComponent (NeonPatrol enemies)
 	if (UCombatComponent* CombatComp = Target->FindComponentByClass<UCombatComponent>())
 	{
 		CombatComp->TakeDamage(Damage);

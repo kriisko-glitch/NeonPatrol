@@ -25,6 +25,7 @@ public class NeonPatrol : ModuleRules
 			"SlateCore",
 		});
 
-		PrivateDependencyModuleNames.AddRange(new string[] { });
+		// Access TP_ThirdPerson module for ICombatDamageable interface, etc.
+		PrivateDependencyModuleNames.AddRange(new string[] { "TP_ThirdPerson" });
 	}
 }
