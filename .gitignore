@@ -1,0 +1,29 @@
+# UE5 Build artifacts
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+Build/
+
+# IDE
+.vs/
+.vscode/
+*.sln
+*.suo
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Packaged builds
+Packaged/
+
+# UE5 generated
+*.VC.db
+*.opensdf
+*.opendb
+*.sdf
+*.ipch
+
+# Content that comes from engine/Fab packs (don't bloat repo)
+# Keep only project-specific content
