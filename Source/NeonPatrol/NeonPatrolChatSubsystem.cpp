@@ -92,8 +92,8 @@ void UNeonPatrolChatSubsystem::Tick(float DeltaTime)
     }
     bEnterWasDown = bEnterDown;
 
-    // Escape key: close chat
-    bool bEscDown = PC->IsInputKeyDown(EKeys::Escape);
+    // Tab key: close chat (Escape exits PIE, so we use Tab)
+    bool bEscDown = PC->IsInputKeyDown(EKeys::Tab);
     if (bEscDown && !bEscWasDown)
     {
         if (ChatWidget) ChatWidget->HideChat();
