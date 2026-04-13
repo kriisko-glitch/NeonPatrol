@@ -21,17 +21,23 @@ Two C++ modules:
 - StateTree-based enemy behavior
 - All the ICombatDamageable / ICombatAttacker interfaces
 
-**NeonPatrol** (our gameplay):
-- SparkCharacter — AI companion that follows + fights
-- SparkBrainComponent — LLM chat via HTTP → Qwen 0.8B (port 11001)
-- WaveSpawner — wave-based enemy spawning (extends template spawner concept)
+**NeonPatrol** (our gameplay — 28 C++ files):
+- SparkCharacter — AI companion, follows/fights/obeys commands
+- SparkBrainComponent — LLM chat via Groq API (llama-3.3-70b)
+  - JSON command parsing: {"say":"text", "cmd":"COMMAND PARAM"}
+  - 12 commands: FOLLOW, STAY, ATTACK, HOLD_FIRE, MOVE_*, AGGRESSIVE, DEFENSIVE, SCOUT
+- SparkVoiceComponent — STT (Groq Whisper) + TTS (Windows SAPI) via audio bridge
+- SparkCommentaryComponent — 40+ contextual combat quips, idle chatter
+- ChatOverlayWidget — bottom-left chat UI, Enter to toggle, programmatic UMG
+- NeonPatrolChatSubsystem — auto-creates UI, Enter/V key input polling
+- WaveSpawner — wave-based enemy spawning with difficulty scaling
 - NeonPatrolCharacter — player with projectile shooting + health
 - NeonPatrolGameMode — orchestrates waves, companion, scoring
-- ChatWidget — in-game chat UI
-- NeonPatrolHUD — health, wave, score display
 - CombatComponent — shared health/damage component
-- Projectile — simple energy projectile
+- Projectile — energy projectile, overlap detection, ICombatDamageable support
 - RobotEnemy — enemy character (type: Drone/Turret/Heavy)
+- ChatWidget — original chat widget (backup)
+- NeonPatrolHUD — health, wave, score display
 
 ## Key Paths
 
@@ -58,11 +64,18 @@ Two C++ modules:
 
 ## LLM Integration (Spark Chat)
 
-- Endpoint: `http://127.0.0.1:11001/v1/chat/completions`
-- Model: Qwen 0.8B on local 4060 GPU
-- Required: `chat_template_kwargs: {"enable_thinking": false}`
-- Required: `User-Agent: Kriisko-Studio/1.0`
-- Round-trip: ~15ms warm
+- **Primary**: Groq API (`https://api.groq.com/openai/v1/chat/completions`)
+- **Model**: llama-3.3-70b-versatile (fast, free, good at JSON commands)
+- **API key**: loaded from `C:/Users/Kris/Kriisko-Studio/tools/.groq_key`
+- **Fallback**: Qwen 0.8B on `http://127.0.0.1:11001` (local, needs llama-server)
+- **Response format**: `{"say":"text", "cmd":"COMMAND PARAM"}`
+
+## Audio Bridge (Voice Chat)
+
+- **Server**: `python tools/audio_bridge.py` (port 7777)
+- **STT**: Groq Whisper (`whisper-large-v3-turbo`)
+- **TTS**: Windows SAPI (`System.Speech.Synthesis`)
+- **Controls**: V key = push-to-talk (3 second recording)
 
 ## Development Phases
 
