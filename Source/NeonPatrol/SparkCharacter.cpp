@@ -12,6 +12,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "AIController.h"
+#include "Materials/MaterialInstanceDynamic.h"
 
 ASparkCharacter::ASparkCharacter()
 {
@@ -161,6 +162,12 @@ void ASparkCharacter::Tick(float DeltaTime)
         FollowTarget = UGameplayStatics::GetPlayerPawn(this, 0);
     }
 
+    // Leash check — teleport back if too far or fell off map
+    EnforceLeash();
+
+    // Update visual color based on state
+    UpdateColorState(DeltaTime);
+
     // --- Enemy targeting (only if attacking is enabled) ---
     CurrentEnemy = nullptr;
     if (bShouldAttack)
@@ -255,4 +262,92 @@ void ASparkCharacter::ShootAtEnemy()
     }
 
     LastAttackTime = GetWorld()->GetTimeSeconds();
+}
+
+void ASparkCharacter::UpdateColorState(float DeltaTime)
+{
+    if (!BodyMesh) return;
+
+    ColorPulseTimer += DeltaTime;
+    float Pulse = (FMath::Sin(ColorPulseTimer * 6.f) + 1.f) * 0.5f; // 0-1 pulsing
+
+    FLinearColor Color;
+
+    if (CurrentEnemy && bShouldAttack)
+    {
+        // Red pulsing — actively attacking
+        Color = FLinearColor::LerpUsingHSV(FLinearColor(0.8f, 0.1f, 0.1f), FLinearColor(1.f, 0.3f, 0.1f), Pulse);
+    }
+    else if (bShouldAttack && !CurrentEnemy)
+    {
+        // Check if any enemy is within 1500 units (alert range)
+        bool bEnemyNearby = false;
+        for (TActorIterator<ACharacter> It(GetWorld()); It; ++It)
+        {
+            ACharacter* C = *It;
+            APawn* Player = UGameplayStatics::GetPlayerPawn(this, 0);
+            if (!C || C == this || C == Player) continue;
+            if (!C->GetController() || C->GetController()->IsPlayerController()) continue;
+            if (FVector::Dist(GetActorLocation(), C->GetActorLocation()) < 1500.f)
+            {
+                bEnemyNearby = true;
+                break;
+            }
+        }
+        if (bEnemyNearby)
+        {
+            // Orange pulsing — enemies nearby
+            Color = FLinearColor::LerpUsingHSV(FLinearColor(1.f, 0.5f, 0.f), FLinearColor(1.f, 0.7f, 0.2f), Pulse);
+        }
+        else
+        {
+            // Green — all clear
+            Color = FLinearColor(0.1f, 0.9f, 0.3f);
+        }
+    }
+    else
+    {
+        // Blue-green — hold fire / passive
+        Color = FLinearColor(0.1f, 0.6f, 0.8f);
+    }
+
+    SetSparkColor(Color);
+}
+
+void ASparkCharacter::SetSparkColor(const FLinearColor& Color)
+{
+    if (!BodyMesh) return;
+
+    UMaterialInstanceDynamic* DynMat = Cast<UMaterialInstanceDynamic>(BodyMesh->GetMaterial(0));
+    if (!DynMat)
+    {
+        UMaterialInterface* BaseMat = BodyMesh->GetMaterial(0);
+        if (BaseMat)
+        {
+            DynMat = UMaterialInstanceDynamic::Create(BaseMat, this);
+            BodyMesh->SetMaterial(0, DynMat);
+        }
+    }
+    if (DynMat)
+    {
+        DynMat->SetVectorParameterValue(TEXT("BaseColor"), Color);
+    }
+}
+
+void ASparkCharacter::EnforceLeash()
+{
+    if (!FollowTarget) return;
+
+    float Dist = FVector::Dist(GetActorLocation(), FollowTarget->GetActorLocation());
+    float Z = GetActorLocation().Z;
+
+    if (Dist > MaxLeashDistance || Z < MinFloorZ)
+    {
+        // Teleport back near the player
+        FVector TeleportLoc = FollowTarget->GetActorLocation() + FVector(200.f, 100.f, 0.f);
+        SetActorLocation(TeleportLoc);
+        bHasMoveTarget = false;
+        bShouldFollow = true;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: Leash teleport — was %.0f units away"), Dist);
+    }
 }

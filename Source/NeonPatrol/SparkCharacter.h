@@ -101,7 +101,17 @@ private:
     // Movement command state
     FVector MoveTargetLocation = FVector::ZeroVector;
     bool bHasMoveTarget = false;
-    bool bWasInCombat = false; // Track combat state transitions for commentary
+    bool bWasInCombat = false;
+
+    // Color state for visual feedback
+    float ColorPulseTimer = 0.f;
+    void UpdateColorState(float DeltaTime);
+    void SetSparkColor(const FLinearColor& Color);
+
+    // Leash — teleport back if too far
+    static constexpr float MaxLeashDistance = 2000.f;
+    static constexpr float MinFloorZ = -500.f;
+    void EnforceLeash();
 
     void ShootAtEnemy();
     void MoveTowardTarget(float DeltaTime);

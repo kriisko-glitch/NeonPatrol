@@ -95,14 +95,10 @@ void USparkCommentaryComponent::SayComment(const FString& Comment)
         return;
     }
 
+    // Show in chat log only — NO TTS (avoids talking over LLM responses)
     if (BrainComp)
     {
-        BrainComp->OnChatResponse.Broadcast("", Comment);
-    }
-
-    if (VoiceComp)
-    {
-        VoiceComp->SpeakText(Comment);
+        BrainComp->OnChatResponse.Broadcast(TEXT(""), Comment);
     }
 
     LastCommentTime = Now;
