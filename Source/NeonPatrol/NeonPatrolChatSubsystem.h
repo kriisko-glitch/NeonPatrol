@@ -5,6 +5,7 @@
 #include "NeonPatrolChatSubsystem.generated.h"
 
 class UChatOverlayWidget;
+class ASparkCharacter;
 
 UCLASS()
 class NEONPATROL_API UNeonPatrolChatSubsystem : public UTickableWorldSubsystem
@@ -29,8 +30,11 @@ private:
     UChatOverlayWidget* ChatWidget = nullptr;
 
     bool bWidgetCreated = false;
+    bool bSparkSpawned = false;
     bool bEnterWasDown = false;
     bool bEscWasDown = false;
     bool bVKeyWasDown = false;
     float InitDelay = 0.5f;
+
+    void EnsureSparkExists();
 };

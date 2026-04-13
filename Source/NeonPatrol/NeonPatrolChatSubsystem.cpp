@@ -8,11 +8,14 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Kismet/GameplayStatics.h"
+#include "Components/StaticMeshComponent.h"
 
 void UNeonPatrolChatSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
     Super::Initialize(Collection);
     bWidgetCreated = false;
+    bSparkSpawned = false;
     bEnterWasDown = false;
     InitDelay = 0.5f;
 }
@@ -44,6 +47,13 @@ void UNeonPatrolChatSubsystem::Tick(float DeltaTime)
     {
         InitDelay -= DeltaTime;
         return;
+    }
+
+    // Auto-spawn Spark if not in level (works in packaged builds)
+    if (!bSparkSpawned)
+    {
+        EnsureSparkExists();
+        bSparkSpawned = true;
     }
 
     // Create widget once
@@ -118,6 +128,48 @@ void UNeonPatrolChatSubsystem::ToggleChat()
     if (ChatWidget)
     {
         ChatWidget->ToggleChatPanel();
+    }
+}
+
+void UNeonPatrolChatSubsystem::EnsureSparkExists()
+{
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    // Check if a SparkCharacter already exists
+    for (TActorIterator<ASparkCharacter> It(World); It; ++It)
+    {
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark already exists in level"));
+        return;
+    }
+
+    // Spawn Spark near the player
+    APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(World, 0);
+    if (!PlayerPawn) return;
+
+    FVector SpawnLoc = PlayerPawn->GetActorLocation() + FVector(200.f, 100.f, 0.f);
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    ASparkCharacter* Spark = World->SpawnActor<ASparkCharacter>(ASparkCharacter::StaticClass(), SpawnLoc, FRotator::ZeroRotator, Params);
+    if (Spark)
+    {
+        // Set visible sphere mesh
+        TArray<UStaticMeshComponent*> MeshComps;
+        Spark->GetComponents<UStaticMeshComponent>(MeshComps);
+        for (UStaticMeshComponent* MC : MeshComps)
+        {
+            UStaticMesh* SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere"));
+            if (SphereMesh)
+            {
+                MC->SetStaticMesh(SphereMesh);
+                MC->SetRelativeScale3D(FVector(0.5f));
+            }
+        }
+        Spark->SetActorScale3D(FVector(0.7f));
+        Spark->FollowTarget = PlayerPawn;
+
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark auto-spawned near player at %s"), *SpawnLoc.ToString());
     }
 }
 

@@ -11,15 +11,31 @@ void USparkBrainComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-    FString FullPath = FPaths::ConvertRelativePathToFull(ApiKeyFilePath);
-    if (FFileHelper::LoadFileToString(ApiKey, *FullPath))
+    // Try loading API key from multiple locations (packaged build compatibility)
+    TArray<FString> KeyPaths = {
+        FPaths::Combine(FPaths::ProjectDir(), TEXT("groq.key")),           // Game directory
+        FPaths::Combine(FPaths::ProjectDir(), TEXT("tools/.groq_key")),    // Dev layout
+        FPaths::ConvertRelativePathToFull(ApiKeyFilePath),                  // Configured path
+    };
+
+    bool bKeyLoaded = false;
+    for (const FString& Path : KeyPaths)
     {
-        ApiKey.TrimStartAndEndInline();
-        UE_LOG(LogTemp, Log, TEXT("SparkBrain: API key loaded from %s"), *FullPath);
+        if (FFileHelper::LoadFileToString(ApiKey, *Path))
+        {
+            ApiKey.TrimStartAndEndInline();
+            if (!ApiKey.IsEmpty())
+            {
+                UE_LOG(LogNeonPatrol, Log, TEXT("SparkBrain: API key loaded from %s"), *Path);
+                bKeyLoaded = true;
+                break;
+            }
+        }
     }
-    else
+
+    if (!bKeyLoaded)
     {
-        UE_LOG(LogTemp, Error, TEXT("SparkBrain: Failed to load API key from %s"), *FullPath);
+        UE_LOG(LogNeonPatrol, Error, TEXT("SparkBrain: No API key found. Chat will not work. Place groq.key in game directory."));
     }
 }
 
