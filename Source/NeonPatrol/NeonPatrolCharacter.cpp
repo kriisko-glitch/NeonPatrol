@@ -1,5 +1,5 @@
 #include "NeonPatrolCharacter.h"
-#include "Components/SpringArmComponent.h"
+#include "GameFramework/SpringArmComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "CombatComponent.h"
