@@ -1,10 +1,13 @@
 #include "NeonPatrolChatSubsystem.h"
 #include "ChatOverlayWidget.h"
+#include "SparkCharacter.h"
+#include "SparkVoiceComponent.h"
 #include "NeonPatrol.h"
 #include "GameFramework/PlayerController.h"
 #include "Blueprint/UserWidget.h"
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 
 void UNeonPatrolChatSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
@@ -78,6 +81,14 @@ void UNeonPatrolChatSubsystem::Tick(float DeltaTime)
         ToggleChat();
     }
     bEnterWasDown = bEnterDown;
+
+    // V key = push-to-talk voice input
+    bool bVKeyDown = PC->IsInputKeyDown(EKeys::V);
+    if (bVKeyDown && !bVKeyWasDown)
+    {
+        StartVoiceInput();
+    }
+    bVKeyWasDown = bVKeyDown;
 }
 
 void UNeonPatrolChatSubsystem::ToggleChat()
@@ -85,5 +96,37 @@ void UNeonPatrolChatSubsystem::ToggleChat()
     if (ChatWidget)
     {
         ChatWidget->ToggleChatPanel();
+    }
+}
+
+void UNeonPatrolChatSubsystem::StartVoiceInput()
+{
+    UWorld* World = GetWorld();
+    if (!World) return;
+
+    // Find SparkCharacter's VoiceComponent
+    for (TActorIterator<ASparkCharacter> It(World); It; ++It)
+    {
+        if (USparkVoiceComponent* Voice = It->FindComponentByClass<USparkVoiceComponent>())
+        {
+            if (!Voice->IsRecording())
+            {
+                UE_LOG(LogNeonPatrol, Log, TEXT("Voice input: recording started (V key)"));
+
+                // Show the chat panel so the user sees the transcription
+                if (ChatWidget)
+                {
+                    ChatWidget->ShowChat();
+                    ChatWidget->AddMessage(TEXT("System"), TEXT("Listening... (3 seconds)"));
+
+                    // Bind transcription result to chat (one-shot — re-binds each press)
+                    Voice->OnVoiceTranscribed.Clear();
+                    Voice->OnVoiceTranscribed.AddDynamic(ChatWidget, &UChatOverlayWidget::OnVoiceTranscribed);
+                }
+
+                Voice->StartVoiceChat();
+            }
+            break;
+        }
     }
 }

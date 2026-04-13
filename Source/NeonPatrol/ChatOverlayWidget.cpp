@@ -207,6 +207,11 @@ void UChatOverlayWidget::OnSparkResponse(FString PlayerMsg, FString SparkMsg)
     AddMessage(TEXT("Spark"), SparkMsg);
 }
 
+void UChatOverlayWidget::OnVoiceTranscribed(FString TranscribedText)
+{
+    AddMessage(TEXT("You (voice)"), TranscribedText);
+}
+
 void UChatOverlayWidget::AddMessage(const FString& Sender, const FString& Message)
 {
     if (!ChatScrollBox) return;

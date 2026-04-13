@@ -21,6 +21,15 @@ AProjectile::AProjectile()
 
 	MeshComp = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("MeshComp"));
 	MeshComp->SetupAttachment(RootComponent);
+	MeshComp->SetRelativeScale3D(FVector(0.15f, 0.15f, 0.15f));
+	MeshComp->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	// Load default sphere mesh for visible projectile
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMesh(TEXT("/Engine/BasicShapes/Sphere"));
+	if (SphereMesh.Succeeded())
+	{
+		MeshComp->SetStaticMesh(SphereMesh.Object);
+	}
 
 	InitialLifeSpan = 3.0f;
 }

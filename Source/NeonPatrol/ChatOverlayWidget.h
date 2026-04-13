@@ -41,11 +41,16 @@ public:
     UFUNCTION()
     void OnSparkResponse(FString PlayerMsg, FString SparkMsg);
 
+    UFUNCTION()
+    void OnVoiceTranscribed(FString TranscribedText);
+
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Chat")
     int32 MaxMessages = 50;
 
-private:
+    UFUNCTION(BlueprintCallable, Category = "Chat")
     void AddMessage(const FString& Sender, const FString& Message);
+
+private:
     void FindBrainComponent();
 
     UPROPERTY()

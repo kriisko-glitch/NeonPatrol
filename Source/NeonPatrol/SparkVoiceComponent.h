@@ -22,7 +22,7 @@ public:
     FString AudioBridgeURL = TEXT("http://127.0.0.1:7777");
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SparkVoice")
-    float RecordDuration = 5.0f;
+    float RecordDuration = 3.0f;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "SparkVoice")
     bool bAutoSpeak = true;

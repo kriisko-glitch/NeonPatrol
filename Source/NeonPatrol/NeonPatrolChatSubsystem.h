@@ -21,11 +21,15 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Chat")
     void ToggleChat();
 
+    UFUNCTION(BlueprintCallable, Category = "Chat")
+    void StartVoiceInput();
+
 private:
     UPROPERTY()
     UChatOverlayWidget* ChatWidget = nullptr;
 
     bool bWidgetCreated = false;
     bool bEnterWasDown = false;
+    bool bVKeyWasDown = false;
     float InitDelay = 0.5f;
 };
