@@ -173,14 +173,42 @@ FString USparkBrainComponent::GetLastResponse() const
 
 void USparkBrainComponent::ParseAndExecuteCommand(const FString& RawResponse, FString& OutSay)
 {
-    // Try to parse as JSON: {"say":"...", "cmd":"COMMAND PARAM"}
+    // Clean up response — strip markdown code blocks if present
+    FString CleanResponse = RawResponse;
+    CleanResponse.TrimStartAndEndInline();
+
+    // Strip ```json ... ``` wrapper
+    if (CleanResponse.StartsWith(TEXT("```")))
+    {
+        int32 FirstNewline = CleanResponse.Find(TEXT("\n"));
+        if (FirstNewline != INDEX_NONE)
+        {
+            CleanResponse = CleanResponse.Mid(FirstNewline + 1);
+        }
+        if (CleanResponse.EndsWith(TEXT("```")))
+        {
+            CleanResponse = CleanResponse.Left(CleanResponse.Len() - 3);
+        }
+        CleanResponse.TrimStartAndEndInline();
+    }
+
+    // Find the JSON object within the response (handle leading/trailing text)
+    int32 JsonStart = CleanResponse.Find(TEXT("{"));
+    int32 JsonEnd = CleanResponse.Find(TEXT("}"), ESearchCase::IgnoreCase, ESearchDir::FromEnd);
+    if (JsonStart != INDEX_NONE && JsonEnd != INDEX_NONE && JsonEnd > JsonStart)
+    {
+        CleanResponse = CleanResponse.Mid(JsonStart, JsonEnd - JsonStart + 1);
+    }
+
+    // Try to parse as JSON
     TSharedPtr<FJsonObject> JsonObj;
-    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(RawResponse);
+    TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(CleanResponse);
 
     if (!FJsonSerializer::Deserialize(Reader, JsonObj) || !JsonObj.IsValid())
     {
         // Not valid JSON — treat entire response as speech, no command
         OutSay = RawResponse;
+        UE_LOG(LogNeonPatrol, Warning, TEXT("SparkBrain: Failed to parse JSON: %s"), *CleanResponse.Left(100));
         return;
     }
 
@@ -236,6 +264,14 @@ void USparkBrainComponent::ParseAndExecuteCommand(const FString& RawResponse, FS
     {
         Spark->ExecuteCommand(Cmd, CmdParam);
         OnSparkCommand.Broadcast(CmdName, CmdParam);
+
+        // Visual confirmation: briefly flash white
+        Spark->SetSparkColor(FLinearColor::White);
+
         UE_LOG(LogNeonPatrol, Log, TEXT("SparkBrain: Executed command %s (%.0f)"), *CmdName, CmdParam);
+    }
+    else
+    {
+        UE_LOG(LogNeonPatrol, Log, TEXT("SparkBrain: Unknown command '%s'"), *CmdName);
     }
 }

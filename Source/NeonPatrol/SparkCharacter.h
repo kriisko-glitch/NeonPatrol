@@ -107,7 +107,9 @@ private:
     // Color state for visual feedback
     float ColorPulseTimer = 0.f;
     void UpdateColorState(float DeltaTime);
+public:
     void SetSparkColor(const FLinearColor& Color);
+private:
 
     // Leash — teleport back if too far
     static constexpr float MaxLeashDistance = 2000.f;
