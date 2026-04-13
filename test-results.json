@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-04-13 09:25:34",
+  "passed": 6,
+  "failed": 1,
+  "errors": 0,
+  "total": 7,
+  "tests": [
+    {
+      "status": "PASS",
+      "name": "Editor running",
+      "message": "RC API up (34 routes)"
+    },
+    {
+      "status": "PASS",
+      "name": "Spark in level",
+      "message": "all components present (9 total)"
+    },
+    {
+      "status": "PASS",
+      "name": "Level has enemies",
+      "message": "Spawners=3 Enemies=59 PlayerStart=True"
+    },
+    {
+      "status": "PASS",
+      "name": "Groq API",
+      "message": "Response: {\"say\":\"Test received\",\"cmd\":\"NONE\"}"
+    },
+    {
+      "status": "PASS",
+      "name": "Command parsing",
+      "message": "3/3 commands correct"
+    },
+    {
+      "status": "FAIL",
+      "name": "Conversational commands",
+      "message": "7/10 conversational commands correct (need 8+)"
+    },
+    {
+      "status": "PASS",
+      "name": "Audio bridge",
+      "message": "STT=True TTS=True"
+    }
+  ]
+}

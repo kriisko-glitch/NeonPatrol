@@ -27,6 +27,9 @@ public:
     void ToggleChatPanel();
 
     UFUNCTION(BlueprintCallable, Category = "Chat")
+    bool IsChatVisible() const { return bChatVisible; }
+
+    UFUNCTION(BlueprintCallable, Category = "Chat")
     void ShowChat();
 
     UFUNCTION(BlueprintCallable, Category = "Chat")

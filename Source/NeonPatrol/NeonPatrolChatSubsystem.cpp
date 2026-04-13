@@ -75,37 +75,36 @@ void UNeonPatrolChatSubsystem::Tick(float DeltaTime)
     APlayerController* PC = World->GetFirstPlayerController();
     if (!PC) return;
 
-    // Enter key: only OPEN chat when it's closed (not toggle)
-    // When chat is open, Enter is handled by the text input (submits message)
+    bool bChatOpen = ChatWidget && ChatWidget->IsChatVisible();
+
+    // Enter key: open chat when closed, let text input handle it when open
     bool bEnterDown = PC->IsInputKeyDown(EKeys::Enter);
     if (bEnterDown && !bEnterWasDown)
     {
-        if (ChatWidget && ChatWidget->GetVisibility() != ESlateVisibility::Collapsed)
+        if (!bChatOpen)
         {
-            // Chat is open — don't interfere, let text input handle Enter
+            ChatWidget->ShowChat();
         }
-        else
-        {
-            // Chat is closed — open it
-            if (ChatWidget) ChatWidget->ShowChat();
-        }
+        // When chat IS open, Enter is handled by the text input's OnTextCommitted
     }
     bEnterWasDown = bEnterDown;
 
-    // Tab key: close chat (Escape exits PIE, so we use Tab)
-    bool bEscDown = PC->IsInputKeyDown(EKeys::Tab);
-    if (bEscDown && !bEscWasDown)
+    // Tab key: close chat
+    bool bTabDown = PC->IsInputKeyDown(EKeys::Tab);
+    if (bTabDown && !bEscWasDown)
     {
-        if (ChatWidget) ChatWidget->HideChat();
+        if (bChatOpen)
+        {
+            ChatWidget->HideChat();
+        }
     }
-    bEscWasDown = bEscDown;
+    bEscWasDown = bTabDown;
 
-    // V key = push-to-talk voice input (works anytime, no chat panel)
+    // V key = push-to-talk voice (close chat first if open)
     bool bVKeyDown = PC->IsInputKeyDown(EKeys::V);
     if (bVKeyDown && !bVKeyWasDown)
     {
-        // Close chat first if open, so player stays in gameplay
-        if (ChatWidget && ChatWidget->GetVisibility() != ESlateVisibility::Collapsed)
+        if (bChatOpen)
         {
             ChatWidget->HideChat();
         }
