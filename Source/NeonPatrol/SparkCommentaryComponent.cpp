@@ -74,33 +74,19 @@ void USparkCommentaryComponent::BeginPlay()
 void USparkCommentaryComponent::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
-
-    const float Now = GetWorld()->GetTimeSeconds();
-    if (Now - LastIdleTime >= IdleChatInterval && Now - LastCommentTime >= MinCommentInterval)
-    {
-        if (IdleChatter.Num() > 0)
-        {
-            const int32 Index = FMath::RandRange(0, IdleChatter.Num() - 1);
-            SayComment(IdleChatter[Index]);
-            LastIdleTime = Now;
-        }
-    }
+    // Idle chatter disabled — commentary is now visual (color states only).
+    // The color system in SparkCharacter::UpdateColorState handles all feedback.
 }
 
 void USparkCommentaryComponent::SayComment(const FString& Comment)
 {
+    // Commentary is now visual only (color states on Spark mesh).
+    // No text, no voice — just update LastCommentTime for internal tracking.
     const float Now = GetWorld()->GetTimeSeconds();
     if (Now - LastCommentTime < MinCommentInterval)
     {
         return;
     }
-
-    // Show in chat log only — NO TTS (avoids talking over LLM responses)
-    if (BrainComp)
-    {
-        BrainComp->OnChatResponse.Broadcast(TEXT(""), Comment);
-    }
-
     LastCommentTime = Now;
 }
 
