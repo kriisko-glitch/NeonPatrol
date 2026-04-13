@@ -7,6 +7,7 @@
 class UCombatComponent;
 class USparkBrainComponent;
 class USparkVoiceComponent;
+class USparkCommentaryComponent;
 class ARobotEnemy;
 class AProjectile;
 
@@ -23,6 +24,17 @@ enum class ESparkCommand : uint8
     MoveRight,
     MoveBack,
     ComeHere,       // Move directly to player
+    Aggressive,     // Close range, fast fire
+    Defensive,      // Stay near player, conservative
+    Scout,          // Move ahead, scan, return
+};
+
+UENUM(BlueprintType)
+enum class ESparkCombatMode : uint8
+{
+    Balanced,
+    Aggressive,
+    Defensive,
 };
 
 UCLASS(BlueprintType)
@@ -42,6 +54,9 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Behavior")
     bool bShouldAttack = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Behavior")
+    ESparkCombatMode CombatMode = ESparkCombatMode::Balanced;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Follow")
     float FollowDistance = 300.0f;
@@ -76,6 +91,9 @@ protected:
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     USparkVoiceComponent* VoiceComp;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USparkCommentaryComponent* CommentaryComp;
+
 private:
     float LastAttackTime = 0.f;
     AActor* CurrentEnemy = nullptr;
@@ -83,6 +101,7 @@ private:
     // Movement command state
     FVector MoveTargetLocation = FVector::ZeroVector;
     bool bHasMoveTarget = false;
+    bool bWasInCombat = false; // Track combat state transitions for commentary
 
     void ShootAtEnemy();
     void MoveTowardTarget(float DeltaTime);

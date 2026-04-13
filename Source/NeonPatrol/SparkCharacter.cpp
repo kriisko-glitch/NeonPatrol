@@ -2,6 +2,7 @@
 #include "CombatComponent.h"
 #include "SparkBrainComponent.h"
 #include "SparkVoiceComponent.h"
+#include "SparkCommentaryComponent.h"
 #include "RobotEnemy.h"
 #include "Projectile.h"
 #include "NeonPatrol.h"
@@ -21,6 +22,7 @@ ASparkCharacter::ASparkCharacter()
 
     BrainComp = CreateDefaultSubobject<USparkBrainComponent>(TEXT("BrainComp"));
     VoiceComp = CreateDefaultSubobject<USparkVoiceComponent>(TEXT("VoiceComp"));
+    CommentaryComp = CreateDefaultSubobject<USparkCommentaryComponent>(TEXT("CommentaryComp"));
 
     BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
     BodyMesh->SetupAttachment(RootComponent);
@@ -101,6 +103,49 @@ void ASparkCharacter::ExecuteCommand(ESparkCommand Command, float Param)
         break;
     }
 
+    case ESparkCommand::Aggressive:
+        CombatMode = ESparkCombatMode::Aggressive;
+        bShouldAttack = true;
+        bShouldFollow = true;
+        FollowDistance = 100.f;
+        AttackCooldown = 0.8f;
+        AttackRange = 1200.f;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: AGGRESSIVE mode — fast fire, wide range"));
+        break;
+
+    case ESparkCommand::Defensive:
+        CombatMode = ESparkCombatMode::Defensive;
+        bShouldAttack = true;
+        bShouldFollow = true;
+        FollowDistance = 150.f;
+        AttackCooldown = 2.0f;
+        AttackRange = 400.f;
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: DEFENSIVE mode — close protection only"));
+        break;
+
+    case ESparkCommand::Scout:
+        if (PlayerPawn)
+        {
+            FVector ScoutTarget = PlayerPawn->GetActorLocation() + PlayerPawn->GetActorForwardVector() * 1500.f;
+            MoveTargetLocation = ScoutTarget;
+            bHasMoveTarget = true;
+            bShouldFollow = false;
+
+            // Return after 3 seconds
+            FTimerHandle ScoutTimer;
+            GetWorld()->GetTimerManager().SetTimer(ScoutTimer, [this]()
+            {
+                bShouldFollow = true;
+                bHasMoveTarget = false;
+                if (CommentaryComp)
+                {
+                    CommentaryComp->SayComment(TEXT("Area scanned. Returning to you."));
+                }
+            }, 3.0f, false);
+        }
+        UE_LOG(LogNeonPatrol, Log, TEXT("Spark: SCOUT — moving ahead to scan"));
+        break;
+
     default:
         break;
     }
@@ -143,6 +188,14 @@ void ASparkCharacter::Tick(float DeltaTime)
         {
             ShootAtEnemy();
         }
+
+        // Combat commentary: entering/leaving combat
+        bool bInCombat = (CurrentEnemy != nullptr);
+        if (bInCombat && !bWasInCombat && CommentaryComp)
+        {
+            CommentaryComp->OnCombatStart();
+        }
+        bWasInCombat = bInCombat;
     }
 
     // --- Movement ---

@@ -211,6 +211,9 @@ void USparkBrainComponent::ParseAndExecuteCommand(const FString& RawResponse, FS
     else if (CmdName == TEXT("MOVE_BACK")) Cmd = ESparkCommand::MoveBack;
     else if (CmdName == TEXT("MOVE_LEFT")) Cmd = ESparkCommand::MoveLeft;
     else if (CmdName == TEXT("MOVE_RIGHT")) Cmd = ESparkCommand::MoveRight;
+    else if (CmdName == TEXT("AGGRESSIVE")) Cmd = ESparkCommand::Aggressive;
+    else if (CmdName == TEXT("DEFENSIVE")) Cmd = ESparkCommand::Defensive;
+    else if (CmdName == TEXT("SCOUT")) Cmd = ESparkCommand::Scout;
 
     if (Cmd != ESparkCommand::None)
     {
