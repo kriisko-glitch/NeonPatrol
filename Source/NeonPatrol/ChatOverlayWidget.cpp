@@ -12,17 +12,14 @@
 #include "Components/TextBlock.h"
 #include "Components/Border.h"
 #include "Components/SizeBox.h"
-#include "Components/SizeBoxSlot.h"
 #include "SparkBrainComponent.h"
 #include "SparkCharacter.h"
 #include "NeonPatrol.h"
 #include "EngineUtils.h"
 
-void UChatOverlayWidget::NativeConstruct()
+TSharedRef<SWidget> UChatOverlayWidget::RebuildWidget()
 {
-    Super::NativeConstruct();
-
-    // Root canvas so we can anchor bottom-left
+    // Build the widget tree BEFORE Slate generation
     UCanvasPanel* Canvas = WidgetTree->ConstructWidget<UCanvasPanel>();
     WidgetTree->RootWidget = Canvas;
 
@@ -32,17 +29,17 @@ void UChatOverlayWidget::NativeConstruct()
     ChatPanel->SetPadding(FMargin(10.f));
 
     UCanvasPanelSlot* PanelSlot = Canvas->AddChildToCanvas(ChatPanel);
-    // Anchor bottom-left
     PanelSlot->SetAnchors(FAnchors(0.f, 1.f, 0.f, 1.f));
     PanelSlot->SetAlignment(FVector2D(0.f, 1.f));
     PanelSlot->SetPosition(FVector2D(20.f, -20.f));
     PanelSlot->SetSize(FVector2D(420.f, 280.f));
+    PanelSlot->SetAutoSize(false);
 
-    // Vertical layout inside the panel
+    // Vertical layout
     UVerticalBox* VBox = WidgetTree->ConstructWidget<UVerticalBox>();
     ChatPanel->SetContent(VBox);
 
-    // Chat history scroll box
+    // Chat history scroll box inside a size box
     USizeBox* ScrollSizeBox = WidgetTree->ConstructWidget<USizeBox>();
     ScrollSizeBox->SetHeightOverride(200.f);
 
@@ -70,18 +67,34 @@ void UChatOverlayWidget::NativeConstruct()
     SendBtn->AddChild(SendLabel);
     InputRow->AddChildToHorizontalBox(SendBtn);
 
-    // Bind events
-    SendBtn->OnClicked.AddDynamic(this, &UChatOverlayWidget::OnSendClicked);
-    InputBox->OnTextCommitted.AddDynamic(this, &UChatOverlayWidget::OnInputCommitted);
+    return Super::RebuildWidget();
+}
+
+void UChatOverlayWidget::NativeConstruct()
+{
+    Super::NativeConstruct();
+
+    // Bind events (widgets exist from RebuildWidget)
+    if (SendBtn)
+    {
+        SendBtn->OnClicked.AddDynamic(this, &UChatOverlayWidget::OnSendClicked);
+    }
+    if (InputBox)
+    {
+        InputBox->OnTextCommitted.AddDynamic(this, &UChatOverlayWidget::OnInputCommitted);
+    }
 
     // Find Spark's brain
     FindBrainComponent();
 
-    // Start hidden
-    ChatPanel->SetVisibility(ESlateVisibility::Collapsed);
+    // Start with chat panel hidden
+    if (ChatPanel)
+    {
+        ChatPanel->SetVisibility(ESlateVisibility::Collapsed);
+    }
     bChatVisible = false;
 
-    // Add a welcome message
+    // Welcome message
     AddMessage(TEXT("Spark"), TEXT("Hey partner! Press Enter to chat with me."));
 }
 
@@ -127,18 +140,15 @@ void UChatOverlayWidget::ShowChat()
     ChatPanel->SetVisibility(ESlateVisibility::Visible);
     bChatVisible = true;
 
-    // Try to find brain if not found yet (Spark may have spawned late)
     FindBrainComponent();
-
-    if (InputBox)
-    {
-        InputBox->SetKeyboardFocus();
-    }
 
     if (APlayerController* PC = GetOwningPlayer())
     {
         FInputModeGameAndUI Mode;
-        Mode.SetWidgetToFocus(InputBox ? InputBox->TakeWidget() : TSharedPtr<SWidget>());
+        if (InputBox)
+        {
+            Mode.SetWidgetToFocus(InputBox->TakeWidget());
+        }
         Mode.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
         PC->SetInputMode(Mode);
         PC->SetShowMouseCursor(true);
@@ -178,7 +188,10 @@ void UChatOverlayWidget::OnSendClicked()
     }
 
     InputBox->SetText(FText::GetEmpty());
-    InputBox->SetKeyboardFocus();
+    if (InputBox)
+    {
+        InputBox->SetKeyboardFocus();
+    }
 }
 
 void UChatOverlayWidget::OnInputCommitted(const FText& Text, ETextCommit::Type Type)

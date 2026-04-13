@@ -1,5 +1,7 @@
 #include "SparkCharacter.h"
 #include "CombatComponent.h"
+#include "SparkBrainComponent.h"
+#include "SparkVoiceComponent.h"
 #include "RobotEnemy.h"
 #include "Projectile.h"
 #include "NeonPatrol.h"
@@ -8,6 +10,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "AIController.h"
 
 ASparkCharacter::ASparkCharacter()
 {
@@ -23,6 +26,9 @@ ASparkCharacter::ASparkCharacter()
     CombatComp = CreateDefaultSubobject<UCombatComponent>(TEXT("CombatComp"));
     CombatComp->MaxHealth = 200;
 
+    BrainComp = CreateDefaultSubobject<USparkBrainComponent>(TEXT("BrainComp"));
+    VoiceComp = CreateDefaultSubobject<USparkVoiceComponent>(TEXT("VoiceComp"));
+
     BodyMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("BodyMesh"));
     BodyMesh->SetupAttachment(RootComponent);
     BodyMesh->SetRelativeLocation(FVector(0.0f, 0.0f, 50.0f));
@@ -34,6 +40,10 @@ ASparkCharacter::ASparkCharacter()
     Movement->MaxWalkSpeed = 650.0f;
     Movement->bOrientRotationToMovement = true;
     Movement->DefaultLandMovementMode = EMovementMode::MOVE_Walking;
+
+    // Auto-possess with AI controller so movement works when placed in level
+    AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
+    AIControllerClass = AAIController::StaticClass();
 }
 
 void ASparkCharacter::Tick(float DeltaTime)

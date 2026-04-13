@@ -20,6 +20,7 @@ class NEONPATROL_API UChatOverlayWidget : public UUserWidget
     GENERATED_BODY()
 
 public:
+    virtual TSharedRef<SWidget> RebuildWidget() override;
     virtual void NativeConstruct() override;
 
     UFUNCTION(BlueprintCallable, Category = "Chat")

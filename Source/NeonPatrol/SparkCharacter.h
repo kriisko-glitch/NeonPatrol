@@ -5,6 +5,8 @@
 #include "SparkCharacter.generated.h"
 
 class UCombatComponent;
+class USparkBrainComponent;
+class USparkVoiceComponent;
 class ARobotEnemy;
 class AProjectile;
 
@@ -34,11 +36,17 @@ public:
     float AttackCooldown;
 
 protected:
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UCombatComponent* CombatComp;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
     UStaticMeshComponent* BodyMesh;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USparkBrainComponent* BrainComp;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    USparkVoiceComponent* VoiceComp;
 
 private:
     float LastAttackTime;
